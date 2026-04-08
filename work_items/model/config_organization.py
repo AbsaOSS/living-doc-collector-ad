@@ -43,8 +43,9 @@ class ConfigOrganization:
         if not org_name:
             logger.error("Missing required field 'organization-name' in organization config: %s.", data)
             return False
-        self.organization_name = org_name
-        self.projects_name_filter = data.get("projects-name-filter", [])
+        self.organization_name = str(org_name)
+        projects_filter = data.get("projects-name-filter", [])
+        self.projects_name_filter = list(projects_filter) if isinstance(projects_filter, list) else []
         return True
 
     def __repr__(self) -> str:

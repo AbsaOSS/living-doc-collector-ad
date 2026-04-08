@@ -43,6 +43,7 @@ class ActionInputs(BaseActionInputs):
     def __init__(self) -> None:
         super().__init__()
         self._organizations_cache: list[ConfigOrganization] | None = None
+
     @staticmethod
     def get_ado_token() -> str:
         """
