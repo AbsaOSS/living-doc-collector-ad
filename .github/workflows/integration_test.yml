@@ -1,0 +1,144 @@
+#
+# Copyright 2026 ABSA Group Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+name: "Integration Test"
+
+on:
+  pull_request:
+    paths:
+      - 'work_items/**'
+      - 'action.yml'
+      - '.github/workflows/integration_test.yml'
+  workflow_dispatch:
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    name: Integration Test - Real World Usage
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run collector on Azure DevOps organization
+        env:
+          ADO_TOKEN: ${{ secrets.ADO_ACCESS_TOKEN }}
+        run: |
+          export INPUT_ADO_TOKEN="${ADO_TOKEN}"
+          export INPUT_WORK_ITEMS="true"
+          export INPUT_WORK_ITEMS_ORGANIZATIONS='[{"organization-name": "AbsaOSS", "projects-name-filter": []}]'
+          export INPUT_VERBOSE_LOGGING="true"
+          python3 main.py
+
+      - name: Verify output structure
+        run: |
+          if [ ! -d "./output/work-items" ]; then
+            echo "Error: Output directory not found"
+            exit 1
+          fi
+
+          if [ ! -f "./output/work-items/work-items.json" ]; then
+            echo "Error: work-items.json not found"
+            exit 1
+          fi
+
+          echo "Output directory and file exist"
+
+      - name: Validate JSON structure
+        run: |
+          python3 << 'EOF'
+          import json
+          import sys
+          from datetime import datetime
+
+          with open('./output/work-items/work-items.json', 'r') as f:
+              data = json.load(f)
+
+          print("Validating JSON structure...")
+
+          assert 'metadata' in data, "Missing 'metadata' section"
+          assert 'work_items' in data, "Missing 'work_items' section"
+          print("Top-level structure is correct")
+
+          metadata = data['metadata']
+          required_metadata_fields = ['generated_at', 'generator', 'source']
+          for field in required_metadata_fields:
+              assert field in metadata, f"Missing metadata field: {field}"
+          print("Metadata section has all required fields")
+
+          assert 'name' in metadata['generator'], "Missing generator name"
+          assert metadata['generator']['name'] == 'AbsaOSS/living-doc-collector-ad', "Incorrect generator name"
+          print("Generator metadata is correct")
+
+          try:
+              datetime.fromisoformat(metadata['generated_at'].replace('Z', '+00:00'))
+              print("Timestamp format is valid ISO-8601")
+          except ValueError as e:
+              print(f"Invalid timestamp format: {e}")
+              sys.exit(1)
+
+          work_items = data['work_items']
+          print(f"Found {len(work_items)} work item(s)")
+
+          if work_items:
+              first_key = list(work_items.keys())[0]
+              first_item = work_items[first_key]
+              required_fields = ['id', 'title', 'type', 'state']
+              for field in required_fields:
+                  assert field in first_item, f"Missing required field: {field}"
+              print("Work item base fields are present")
+
+          print("\nAll validation checks passed!")
+          print(f"Generated file: {metadata['generated_at']}")
+          print(f"Total work items: {len(work_items)}")
+          EOF
+
+      - name: Upload output artifact
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: integration-test-output
+          path: ./output/
+          retention-days: 7
+
+      - name: Display sample output
+        if: always()
+        run: |
+          python3 << 'EOF'
+          import json
+
+          with open('./output/work-items/work-items.json', 'r') as f:
+              data = json.load(f)
+
+          print("\n--- File Metadata ---")
+          print(json.dumps(data['metadata'], indent=2))
+
+          if data['work_items']:
+              first_key = list(data['work_items'].keys())[0]
+              print(f"\n--- Sample Work Item ({first_key}) ---")
+              print(json.dumps(data['work_items'][first_key], indent=2))
+          EOF
