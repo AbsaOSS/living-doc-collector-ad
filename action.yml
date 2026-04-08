@@ -1,0 +1,68 @@
+name: 'Living Documentation Collector for Azure DevOps'
+description: 'Collect living documentation data from Azure DevOps organizations.'
+inputs:
+  # Base action inputs
+  ADO-TOKEN:
+    description: 'Azure DevOps Personal Access Token for authentication.'
+    required: true
+  work-items:
+    description: 'Enable or disable `Work Items` mode.'
+    required: false
+    default: 'false'
+  verbose-logging:
+    description: 'Enable or disable verbose logging.'
+    required: false
+    default: 'false'
+
+  # work-items mode action inputs
+  work-items-organizations:
+    description: 'JSON string defining the Azure DevOps organizations and projects to mine.'
+    required: false
+    default: '[]'
+
+outputs:
+  output-path:
+    description: 'Path to the collected living documentation files.'
+    value: ${{ steps.liv-doc-collector.outputs.output-path }}
+
+branding:
+  icon: 'book'
+  color: 'yellow'
+
+runs:
+  using: 'composite'
+  steps:
+
+    - name: Install Python dependencies
+      run: |
+        pip install -r ${{ github.action_path }}/requirements.txt
+      shell: bash
+
+    - name: Prepare environment based on mining modes
+      env:
+        _ADO_TOKEN: ${{ inputs.ADO-TOKEN }}
+        _WORK_ITEMS: ${{ inputs.work-items }}
+        _VERBOSE_LOGGING: ${{ inputs.verbose-logging }}
+        _WORK_ITEMS_ORGS: ${{ inputs.work-items-organizations }}
+      run: |
+        # Set base env variables common for all modes
+        echo "INPUT_ADO_TOKEN=${_ADO_TOKEN}" >> "$GITHUB_ENV"
+        echo "INPUT_WORK_ITEMS=${_WORK_ITEMS}" >> "$GITHUB_ENV"
+        echo "INPUT_VERBOSE_LOGGING=${_VERBOSE_LOGGING}" >> "$GITHUB_ENV"
+
+        # Add work-items-specific env variables if the mode is enabled
+        if [[ "${_WORK_ITEMS}" == "true" ]]; then
+          echo "INPUT_WORK_ITEMS_ORGANIZATIONS=$(echo "${_WORK_ITEMS_ORGS}" | jq -c .)" >> "$GITHUB_ENV"
+        fi
+      shell: bash
+
+    - name: Run Living Documentation Collector for Azure DevOps
+      id: liv-doc-collector
+      env:
+        INPUT_ADO_TOKEN: ${{ env.INPUT_ADO_TOKEN }}
+        INPUT_WORK_ITEMS: ${{ env.INPUT_WORK_ITEMS }}
+        INPUT_VERBOSE_LOGGING: ${{ env.INPUT_VERBOSE_LOGGING }}
+        INPUT_WORK_ITEMS_ORGANIZATIONS: ${{ env.INPUT_WORK_ITEMS_ORGANIZATIONS }}
+      run: |
+        python ${{ github.action_path }}/main.py
+      shell: bash
