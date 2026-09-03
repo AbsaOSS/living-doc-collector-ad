@@ -1,178 +1,131 @@
-Purpose
-- Must follow these instructions when proposing changes for living-doc-collector-ad.
-- Must keep repo-specific facts in “Repo additions” (end of file).
+# Copilot Instructions — Living Documentation Collector for Azure DevOps
 
-Structure
-- Must keep sections in the order defined in this file.
+This file tells a coding agent how to work in this repository. It describes this repo's
+own layout, contract, and workflow; it is not shared with or copied from other repos.
+
+**Section order** — keep the sections below in exactly this order:
+Overview → Repo specifics → Coding guidelines → Inputs → Language and style →
+Logging and string formatting → Docstrings and comments → Patterns → Testing →
+Tooling and quality gates → Common pitfalls → Learned rules.
+
+**House rules for this file**
+
+- Must write every guidance bullet as a constraint led by one of `Must`, `Must not`, `Prefer`, `Avoid`.
+- Must not put a colon after the leading keyword, and Must not use any other keyword style such as `Do`, `Should`, or a two-keyword `Do` / `Avoid` variant.
 - Prefer bullet lists over paragraphs.
-- Must write rules as constraints using “Must / Must not / Prefer / Avoid”.
-- Must keep wording concrete and reviewable.
-- Must keep a single blank line at end of file.
+- Must end the file with a single trailing newline.
 
-Context
-- If this repository is a GitHub Action or CLI:
-  - Must assume it runs in an automation runner environment.
-  - Must treat environment variables as the primary input channel.
-  - Must write outputs only to the configured output folder and expose contract outputs via the declared action/CLI interface.
+## Overview
 
-Coding guidelines
-- Must keep changes small and focused.
-- Prefer clear, explicit code over clever tricks.
-- Must keep externally-visible behavior stable unless intentionally updating the contract.
-- Must keep pure logic free of environment access where practical; route I/O and env through dedicated boundaries.
-- Must keep externally-visible strings, formats, and exit codes stable unless intentional.
+`Living Documentation Collector for Azure DevOps` is a composite GitHub Action that
+data-mines Azure DevOps organizations and projects for living-documentation content and
+writes machine-readable JSON for the downstream `living-doc-*` generators.
 
-Output discipline
-- Prefer concise responses (aim <= 10 lines in the final recap).
-- Must not restate large file contents/configs/checklists; link and summarize deltas.
-- Prefer actionable bullets over prose.
-- When making code changes, must end with:
-  - What changed
-  - Why
-  - How to verify (commands/tests)
-- Avoid deep rationale, alternatives, or long examples unless explicitly requested.
+- Must treat execution as a GitHub Action on a GitHub-hosted runner as the supported path; the `run_script.sh` / `python3 main.py` flow is a development and debugging affordance only.
+- Must read action inputs from `INPUT_*` environment variables and nowhere else.
+- Must keep the whole collect pipeline AI-free — deterministic Python only, no LLM call anywhere in that path.
+- Prefer keeping environment access at the module boundary — `action_inputs.py` and `main.run()` — and Must keep the collectors and models free of environment reads.
 
-PR Body Management
-- Must treat the PR description as an append-only changelog.
-- Must not rewrite/replace the entire PR body; must append updates.
-- Prefer this structure:
-  - Keep original description at top.
-  - Add updates chronologically below.
-  - Use headings like “## Update YYYY-MM-DD” or “## Changes Added”.
-  - Each update references the commit hash that introduced the change.
+## Repo specifics
 
-Inputs
-- If this repository defines inputs via environment variables:
-  - Must treat `INPUT_*` environment variables as the canonical inputs.
-  - Must centralize validation in one input/validation layer.
-  - Must not duplicate validation across modules.
-- If defaults exist:
-  - Must document default behavior in one place.
-- Prefer documenting required vs optional inputs with defaults.
+Module map — a flat package per mode plus shared `utils/`:
 
-Language and style
-- Must target the runtime/version defined in “Repo additions”.
-- Must add type hints/types for new public APIs.
-- Must use the project logging framework; must not use `print`.
-- Must follow the repo import/include conventions (for Python: imports at top of file).
-- Must not disable linter rules inline unless the repo documents an exception process.- Must include the standard copyright/license header in every code file, including `__init__.py`.
-- Must use the project first-copyright year.
-String formatting
-- Must follow the repo-defined formatting rules in “Repo additions”.
-- Logging:
-  - Must use lazy `%` formatting for all log calls.
-  - Must not use f-strings or t-strings in logging calls.
-- Non-logging templates:
-  - Prefer t-strings for non-logging string templates.
-  - Avoid f-strings for user-facing text unless needed for clarity.
-- Exceptions/errors:
-  - Prefer the clearest formatting rule; must keep contract-sensitive strings stable.
+| Path | Responsibility |
+|---|---|
+| `main.py` | Entry point — `run()`; orchestrates user-config validation and the `work-items` mode collector, then sets the `output-path` Action output and maps any failure to exit code `1` |
+| `action_inputs.py` | Input layer — `ActionInputs(BaseActionInputs)`, reads every `INPUT_*` via `living_doc_utilities.github.utils.get_action_input`; `_validate()` verifies the ADO PAT and each configured organization against the Azure DevOps REST API (`requests`); `get_organizations()` parses `work-items-organizations` JSON into `ConfigOrganization`, raising `FetchOrganizationsException` |
+| `work_items/` | `work-items` mode — `collector.py` (`ADWorkItemsCollector`, `collect()` → `bool`), `model/config_organization.py` (`ConfigOrganization` — `load_from_json`, `organization_name`, `projects_name_filter`) |
+| `utils/` | Shared — `constants.py` (`Mode` enum, `INPUT_*` key names `WORK_ITEMS_ORGANIZATIONS` / `VERBOSE_LOGGING`), `exceptions.py` (`FetchOrganizationsException`), `utils.py` (`make_absolute_path`) |
 
-Docstrings and comments
-- Must match existing module style and keep consistent across the repo.
-- Docstrings:
-  - Must start with a short summary line.
-  - Prefer structured sections (`Parameters:` / `Returns:` / `Raises:`) when useful.
-  - Avoid tutorials, long prose, and doctest examples.
-- Comments:
-  - Prefer self-explanatory code.
-  - Prefer comments for intent/edge cases (the "why").
-  - Avoid blocks that restate what code already says.
+- Must treat `main.py` function `run()` as the entry point — its step order is setup logging → `ActionInputs().validate_user_configuration()` → when `work-items` is enabled `ADWorkItemsCollector(output_path).collect()` → `set_action_output("output-path", output_path)` → `sys.exit(1)` when any enabled mode failed.
+- Must keep the step order and the `"Liv-Doc collector for Azure DevOps - ..."` step logs in `run()` stable, since `tests/unit/test_main.py` asserts on them.
 
-Patterns
-- Error handling:
-  - Prefer leaf modules raise exceptions.
-  - Prefer entry points translate failures into exit codes / action-failure output.
-- Constructors (if applicable):
-  - Prefer constructors do not throw; validate via factory/validator if needed.
-- Internal helpers:
-  - Prefer private helpers for internal behavior (`_name` in Python).
-- Testability:
-  - Must keep integration boundaries explicit and mockable.
-  - Must not make real network calls in unit tests.
+Inputs — `INPUT_*` environment variables, parsed only in `ActionInputs` (key names in `utils/constants.py`):
 
-Testing
-- Must use pytest for unit tests.
-- Must keep tests under `tests/`.
-- Prefer unit tests under `tests/unit/`.
-- Must test behavior via return values, raised errors, log messages, and exit codes.
-- Must mock environment variables; must not call external services (e.g., ADO APIs) in unit tests.
-- Must not access private members (names starting with `_`) of the class under test directly in tests.
-- Must place shared test helper functions and factory fixtures in the nearest `conftest.py` and reuse them across tests.
-- Must annotate pytest fixture parameters with `MockerFixture` (from `pytest_mock`) and return types with `Callable[..., T]` (from `collections.abc`) when the fixture returns a factory function.
-- Must not add comments outside test methods in `test_*.py` files; use `# --- section ---` only to separate logical groups of tests.
-- Prefer shared fixtures in `conftest.py`.
-- Prefer TDD workflow:
-  - Must create or update `SPEC.md` in the relevant package directory before writing any code, listing scenarios, inputs, and expected outputs.
-  - Must propose the full set of test cases (name + one-line intent + input summary + expected output summary) and wait for user confirmation before writing any code.
-  - Must be ready to add, remove, or rename tests based on user feedback before proceeding.
-  - Must write all failing tests first (red), then implement until all pass (green).
-  - Must cover all distinct combinations; each test must state its scenario in the docstring.
-  - Must update `SPEC.md` after all tests pass with the confirmed test case table (name + intent + input + expected output).
+| Input | Env var | Required | Notes |
+|---|---|---|---|
+| `ADO-TOKEN` | `INPUT_ADO_TOKEN` | yes | Azure DevOps PAT; read via `get_action_input("ADO_TOKEN", "")` |
+| `work-items` | `INPUT_WORK_ITEMS` | no | mode switch; `"false"` when unset |
+| `verbose-logging` | `INPUT_VERBOSE_LOGGING` | no | default `false` |
+| `work-items-organizations` | `INPUT_WORK_ITEMS_ORGANIZATIONS` | no | JSON array string, default `[]`; required when `work-items` is `true`; `jq`-compacted in `action.yml` before it reaches the runner |
 
-Tooling
-- Must keep tooling rules aligned with repo config files (e.g., `pyproject.toml`).
-- Formatting:
-  - Must use Black.
-- Linting:
-  - Must use Pylint and address warnings.
-- Type checking:
-  - Must run mypy and prefer fixing types over ignoring errors.
-- Coverage:
-  - Must use pytest-cov and meet the coverage minimum defined in “Repo additions”.
+Contract-sensitive outputs:
 
-Quality gates
-- Must run tests first, then format/lint/type-check.
-- Must run after changes; fix issues if below threshold:
-  - Tests: `pytest tests/unit/` then `pytest tests/`
-  - Coverage: `pytest --ignore=tests/integration --cov=. tests/ --cov-fail-under=80 --cov-report=html`
-  - Format: `black $(git ls-files '*.py')`
-  - Lint: `pylint $(git ls-files '*.py' ':!:tests/**')`
-  - Types: `mypy .`
-- If the repo defines special lint scopes (e.g., exclude `tests/`), must use the repo's canonical commands from “Repo additions”.
+- Must keep the Action output key `output-path` stable — set via `set_action_output("output-path", ...)` and exposed by `action.yml` as `output-path`.
+- Must keep exit-code behaviour stable — `0` on success, `1` on any failure (user-config validation, or an enabled mode's `collect()` returning `False`). There is no `2`–`5` taxonomy in this repo.
+- Must keep the `"Liv-Doc collector for Azure DevOps - ..."` log strings stable — tests assert exact text.
 
-Common pitfalls to avoid
-- Dependencies:
-  - Must verify compatibility with the target runtime before adding.
-  - Prefer testing imports locally before committing.
-  - For untyped libraries, prefer explicit `# type: ignore[import-untyped]` on the import.
-- Logging:
-  - Must enforce the logging formatting rule; no workarounds.
-- Cleanup:
-  - Must remove unused variables/imports promptly.
-  - Must not leave dead code.
-- Stability:
-  - Must not change externally-visible strings/outputs unless intentional and reviewed.
+## Coding guidelines
 
-Learned rules
-- Must keep contract-sensitive error messages stable; tests may assert exact strings.
-- Must not change exit codes for existing failure scenarios.
-- Must not change externally-visible output strings without updating the contract.
+- Must keep changes small and scoped to the task.
+- Prefer explicit code over clever constructs.
+- Must keep externally visible behaviour stable unless the task is an intentional contract change.
+- Must not change existing log texts or error messages without a stated reason.
+- Prefer pure functions for parsing and collection logic, and Avoid reading the environment outside `action_inputs.py` and `main.run()`.
 
-Repo additions
-- Project name: living-doc-collector-ad
-- Purpose: Python GitHub Action that collects “living documentation” data from Azure DevOps (e.g., Work Items, Boards, Pipelines) and writes machine-readable JSON for downstream documentation generation and analysis workflows.
-- Runtime: Python 3.14+
-- Logging rule:
-  - Must use lazy `%` formatting (e.g., `logger.info("msg %s", value)`).
-  - Must not use f-strings for logging interpolation.
-- Imports:
-  - Must place all Python imports at the top of the file (not inside functions/methods).
-- Entry points:
-  - `main.py`
-- Inputs:
-  - Via `INPUT_*` environment variables (see `action.yml`).
-  - Key inputs: `INPUT_ADO_TOKEN`, `INPUT_WORK_ITEMS`, `INPUT_WORK_ITEMS_ORGANIZATIONS`, `INPUT_VERBOSE_LOGGING`.
-- Outputs:
-  - Must write under the repository's configured output folder (see code that uses `OUTPUT_PATH`).
-  - Contract-sensitive output: action output `output-path`.
-- Tooling commands (canonical):
-  - Tests: `pytest tests/`
-  - Format: `black $(git ls-files '*.py')`
-  - Lint (exclude tests): `pylint $(git ls-files '*.py' ':!:tests/**')`
-  - Types: `mypy .` (or `mypy <changed_files>`)
-  - Coverage: `pytest --ignore=tests/integration --cov=. tests/ --cov-fail-under=80 --cov-report=html`
-- Thresholds:
-  - Pylint score: >= 9.5/10
-  - Coverage: >= 80%
-- Allowed exceptions to this template: none
+## Inputs
+
+- Must read every input through `ActionInputs`, and Must not call `get_action_input` or `os.getenv("INPUT_...")` from any other module.
+- Must centralise parsing, defaulting, and validation in `ActionInputs` (`_validate()` / `validate_user_configuration()`).
+- Avoid duplicating input validation across modules.
+- Must raise `FetchOrganizationsException` for unparseable `work-items-organizations` JSON so `_validate()` counts it as a configuration error and `run()` exits `1`.
+
+## Language and style
+
+- Must target Python 3.10+ (the ecosystem floor; the published action image may run a newer interpreter).
+- Must add type hints for new public functions and classes.
+- Must keep imports at module top — no imports inside functions or methods.
+- Must not introduce a 3.11+-only standard-library import or syntax without a `sys.version_info` fallback — `X | Y` unions and `match` / `case` are 3.10-native and stay.
+- Must not disable a linter rule inline unless this file records the exception under Learned rules.
+
+## Logging and string formatting
+
+- Must use `logging`, never `print`.
+- Must use lazy `%` formatting in logging calls — `logger.info("msg %s", value)`.
+- Must not use f-strings inside logging calls.
+- Prefer the clearest formatting when constructing exception and failure messages, and Must keep contract-sensitive strings stable.
+
+## Docstrings and comments
+
+- Must match the existing module docstring style — a short summary of what the module contains.
+- Prefer a one-line docstring summary for functions, with `@param` / `@return` / `@raise` lines where they add information, matching the surrounding code.
+- Avoid tutorial-style prose or long examples in docstrings.
+
+## Patterns
+
+- Prefer leaf modules raising the typed exceptions in `utils/exceptions.py`.
+- Must let `main.run()` be the only place that translates a failure into an Action-failure exit code.
+- Prefer private helpers (`_name`) for internal behaviour (`_call_profile_api`, `_call_org_api`, `_validate`).
+- Must keep integration boundaries — the Azure DevOps REST API (`requests`), and the filesystem — explicit and mockable.
+
+## Testing
+
+- Must use `pytest` with `pytest-mock` (`mocker`), and Must not use `unittest`.
+- Must keep tests under `tests/`, mirroring the package layout — `tests/unit/` today, adding `tests/unit/work_items/`, `tests/unit/utils/` as the mode grows.
+- Must test behaviour — return values, raised exceptions, log messages, exit codes.
+- Must mock `INPUT_*` environment variables and the Azure DevOps REST API in unit tests.
+- Must not call external services or the real Azure DevOps API in unit tests.
+- Prefer shared fixtures in `tests/conftest.py`.
+
+## Tooling and quality gates
+
+- Must run `make qa` before finishing a code change — it runs `format-check` → `lint` → `types` → `coverage` and fails on the first failing gate.
+- Must use the individual targets while iterating — `make format`, `make format-check`, `make lint`, `make types`, `make test`, `make coverage`.
+- Must keep `make lint` clean — it runs ruff (`E` / `F` / `I` / `B` over tracked `*.py`, config in `pyproject.toml`) then Pylint, and Pylint must score 9.5 or higher.
+- Must keep `make format-check` (Black, line length 120, config in `pyproject.toml`) clean, and Prefer `make format` (ruff autofix + Black) to fix import order and formatting in one step.
+- Must keep `make types` (mypy, config in `pyproject.toml`) clean, and Prefer fixing types over adding ignores.
+- Must keep `make coverage` (pytest, `--cov-fail-under=80`) passing.
+- Must expect the lint/test workflow to call the same `make` targets, so local and CI never drift.
+
+## Common pitfalls
+
+- Must verify a new dependency supports Python 3.10 before adding it, and Must keep `requirements.txt` and `action.yml` in step when inputs or dependencies change.
+- Must remove unused imports and variables in the same change, and Avoid leaving dead code.
+- Avoid changing externally visible strings, the `output-path` key, or exit codes unless the task calls for it.
+- Must keep `pyproject.toml`, `.pylintrc`, and the CI Python version in step when the floor moves.
+
+## Learned rules
+
+- Must keep the `"Liv-Doc collector for Azure DevOps - ..."` log strings and exit code `1` stable — `tests/unit/test_main.py` asserts exact strings and `sys.exit(1)`.
+- Must not introduce a `2`–`5` exit-code taxonomy; this action reports success as `0` and every failure as `1`.
+- Must keep `ADWorkItemsCollector.collect()` returning `bool` — `main.run()` maps `False` to exit code `1`.

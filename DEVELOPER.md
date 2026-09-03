@@ -1,6 +1,7 @@
 # Living Documentation Collector for Azure DevOps - for Developers
 
 - [Project Setup](#project-setup)
+- [Quality Gate (Makefile)](#quality-gate-makefile)
 - [Run Scripts Locally](#run-scripts-locally)
 - [Run Pylint Check Locally](#run-pylint-check-locally)
 - [Run Black Tool Locally](#run-black-tool-locally)
@@ -15,6 +16,9 @@ If you need to build the action locally, follow these steps for project setup:
 
 ### Prepare the Environment
 
+The supported Python floor is **3.10** (`requires-python = ">=3.10"` in `pyproject.toml`).
+The published action image may run a newer interpreter.
+
 ```shell
 python3 --version
 ```
@@ -24,8 +28,36 @@ python3 --version
 ```shell
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+make install          # or: pip install -r requirements.txt
 ```
+
+---
+## Quality Gate (Makefile)
+
+The `Makefile` is the single source of truth for quality checks — the lint/test workflow
+is converged onto the same targets, so local runs and CI never drift. Run the full gate
+before opening a pull request:
+
+```shell
+make qa
+```
+
+Individual targets:
+
+| Target | What it does |
+|---|---|
+| `make install` | Install runtime and dev dependencies from `requirements.txt` |
+| `make format` | Reformat tracked Python files with Black |
+| `make format-check` | Check Black formatting without writing changes |
+| `make lint` | Run Pylint and enforce the minimum score (`PYLINT_MIN`, default `9.5`) |
+| `make types` | Run the mypy type checker |
+| `make test` | Run the unit test suite (integration tests excluded) |
+| `make coverage` | Run the unit suite with the coverage gate (`COV_MIN`, default `80`) |
+| `make qa` | `format-check` + `lint` + `types` + `coverage` |
+| `make help` | List available targets |
+
+The sections below explain each tool in more detail; the raw commands they show are
+what the corresponding `make` target runs under the hood.
 
 ---
 ## Run Scripts Locally
