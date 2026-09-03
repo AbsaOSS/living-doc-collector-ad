@@ -66,7 +66,7 @@ body:
       label: Runtime Environment
       description: Python version, runner OS, and action version.
       placeholder: |
-        Python: e.g., 3.14.0
+        Python: e.g., 3.10.0
         Runner OS: e.g., ubuntu-latest, macos-14
         Action version: e.g., v0.1.0
     validations:

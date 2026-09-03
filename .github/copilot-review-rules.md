@@ -1,97 +1,75 @@
-# Copilot Review Rules
+# Copilot Review Rules — Living Documentation Collector for Azure DevOps
 
-## Purpose
+This file defines how Copilot reviews pull requests in this repository. It describes this
+repo's own risk areas and review expectations; it is not shared with other repos.
 
-- Do define consistent review behavior and response formatting for Copilot code reviews across repositories.
-- Avoid long audit reports unless explicitly requested.
+**House rules for this file**
 
-## Writing style
-
-- Do use short headings and bullet lists.
-- Do prefer “do/avoid” constraints over prose.
-- Do make checks verifiable (reviewer can point to code and impact).
-- Avoid rewriting entire PRs; prefer minimal actionable suggestions.
+- Must write every guidance bullet as a constraint led by one of `Must`, `Must not`, `Prefer`, `Avoid`.
+- Must not put a colon after the leading keyword, and Must not use any other keyword style.
+- Prefer short headings and bullet lists over prose.
+- Prefer verifiable checks — a reviewer can point to the code and the impact.
+- Avoid long audit reports unless they are explicitly requested.
 
 ## Review modes
 
-This template defines two modes:
+- Must support two modes — Default review for standard PR risk, and Double-check review for elevated-risk PRs.
 
-- Default review: standard PR risk
-- Double-check review: elevated risk PRs
+## Mode — Default review
 
-## Mode: Default review
+- Must treat the change as a single PR with normal risk.
+- Must prioritise in this order — correctness, security, tests, maintainability, style.
 
-- Scope
-  - Do review a single PR at normal risk.
-- Priorities (in order)
-  - Do prioritize: correctness → security → tests → maintainability → style.
-- Checks
-  - Correctness
-    - Do highlight logic bugs, missing edge cases, regressions, and contract changes.
-  - Security & data handling
-    - Do flag unsafe input handling, secrets exposure, auth/authz issues, and insecure defaults.
-  - Tests
-    - Do check that tests exist for changed logic and cover success + failure paths.
-  - Maintainability
-    - Do point out unnecessary complexity, duplication, and unclear naming/structure.
-  - Style
-    - Do note style issues only when they reduce readability or break repo conventions.
-- Response format
-  - Do use short bullet points.
-  - Do reference files + line ranges where possible.
-  - Do group comments by severity:
-    - Blocker (must fix)
-    - Important (should fix)
-    - Nit (optional)
-  - Do provide actionable suggestions (what to change), not rewrites.
-  - Avoid producing long reports.
+**Checks**
 
-## Mode: Double-check review
+- Must flag logic bugs, missing edge cases, regressions, and unintended contract changes.
+- Must flag unsafe input handling, secret exposure, and insecure defaults.
+- Must check that tests exist for changed logic and cover the success and failure paths.
+- Prefer calling out unnecessary complexity, duplication, and unclear naming or structure.
+- Avoid style notes unless they reduce readability or break a repo convention.
 
-- Scope
-  - Do use for higher-risk PRs (security, infra, money flows, wide refactors, data migrations, auth changes).
-- Additional focus
-  - Do confirm previous review comments were correctly addressed (if applicable).
-  - Do re-check high-risk areas:
-    - auth, permissions, secrets, money transfers/billing, persistence, external calls, concurrency
-  - Do look for hidden side effects:
-    - backward compatibility, rollout/upgrade path, failure modes, retries/timeouts, idempotency
-  - Do validate safe defaults:
-    - least privilege, secure logging, safe error messages, predictable behavior on missing inputs
-- Response format
-  - Do add comments only where risk/impact is non-trivial.
-  - Avoid repeating minor style notes already covered by default review.
-  - Do call out “risk acceptance” explicitly if something is left as-is:
-    - what risk
-    - why acceptable
-    - what mitigation exists (tests/monitoring/feature flag)
+**Response format**
 
-## Commenting rules (applies to all modes)
+- Must use short bullet points.
+- Prefer referencing files and line ranges.
+- Must group comments by severity — Blocker (must fix), Important (should fix), Nit (optional).
+- Prefer actionable suggestions over rewrites.
+- Must not rewrite the whole PR or produce a long report.
 
-- Do always include:
-  - What is the issue (1 line)
-  - Why it matters (impact/risk)
-  - How to fix (minimal actionable suggestion)
-- Do prefer linking to existing patterns in the repo over introducing new ones.
-- If you cannot be certain (missing context), do ask a targeted question instead of assuming.
+## Mode — Double-check review
+
+- Must treat the change as higher risk — security, infra, wide refactors, data or schema migrations, changes to the input contract or exit codes.
+
+**Additional focus**
+
+- Prefer confirming that previous review comments were addressed correctly.
+- Must re-check high-risk areas — input parsing, filesystem writes, external calls, error-to-exit-code mapping, ADO PAT and organization validation.
+- Prefer looking for hidden side effects — backward compatibility, failure modes, behaviour on missing or malformed inputs.
+- Prefer validating safe defaults — least privilege, safe error messages, predictable behaviour when an input is absent.
+
+**Response format**
+
+- Prefer commenting only where risk or impact is non-trivial.
+- Avoid repeating minor style notes already covered by Default review.
+- Prefer stating risk acceptance explicitly when something is left as-is — the risk, why it is acceptable, and the mitigation that exists.
+
+## Commenting rules — all modes
+
+- Must include for every comment — what the issue is (one line), why it matters (impact or risk), and how to fix it (a minimal actionable suggestion).
+- Prefer linking to an existing pattern in the repo over introducing a new one.
+- Must ask a targeted question instead of assuming when context is missing.
 
 ## Non-goals
 
-- Avoid requesting refactors unrelated to the PR’s intent.
-- Avoid bikeshedding formatting if tools (formatter/linter) handle it.
-- Avoid proposing architectural rewrites unless explicitly requested.
+- Must not request refactors unrelated to the PR's intent.
+- Must not bikeshed formatting that Black or Pylint already enforces.
+- Avoid proposing architectural rewrites unless they are explicitly requested.
 
-## Repo additions (living-doc-collector-ad)
+## Repo specifics
 
-- Domain-specific high-risk areas
-  - GitHub Action contracts and runner environment behavior.
-  - External calls to GitHub APIs (must be mocked in unit tests).
-- Contract-sensitive surfaces
-  - `action.yml` inputs → `INPUT_*` environment variables.
-  - Action output `output-path`.
-  - JSON outputs and any schema-like structures (keep stable unless explicitly changed).
-  - Exact error messages and exit code behavior (tests may assert exact strings/codes).
-- Required test expectations
-  - Unit tests live under `tests/`.
-  - Tests should cover success + failure paths for changed logic.
-
+- Must treat these as high-risk areas — `INPUT_*` and `work-items-organizations` JSON parsing in `action_inputs.py`, the ADO PAT / organization validation calls (`_call_profile_api`, `_call_org_api`) and their status-code handling, filesystem writes under `output-path`, and the mode-dispatch and exit-code mapping in `main.run()`.
+- Must treat these as contract-sensitive — the Action output key `output-path`, exit codes `0` (success) / `1` (any failure) with no `2`–`5` taxonomy, and the `"Liv-Doc collector for Azure DevOps - ..."` step log strings. `tests/unit/test_main.py` asserts exact content.
+- Must treat the Azure DevOps PAT as a secret — never log it, never echo it, never include it in an error message or exception payload.
+- Must expect unit tests under `tests/` (`tests/unit/` today); there is no integration suite yet.
+- Must expect QA to run through the root `Makefile` — `make qa` covers `format-check`, `lint`, `types`, and `coverage`.
+- Must keep the collect path AI-free — no LLM call anywhere between reading inputs and writing the JSON output.

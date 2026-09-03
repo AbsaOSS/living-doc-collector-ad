@@ -22,12 +22,12 @@ which are essential for running the ADO action.
 import base64
 import json
 import logging
+
 import requests
 from living_doc_utilities.github.utils import get_action_input
-
 from living_doc_utilities.inputs.action_inputs import BaseActionInputs
 
-from utils.constants import Mode, WORK_ITEMS_ORGANIZATIONS, VERBOSE_LOGGING
+from utils.constants import VERBOSE_LOGGING, WORK_ITEMS_ORGANIZATIONS, Mode
 from utils.exceptions import FetchOrganizationsException
 from work_items.model.config_organization import ConfigOrganization
 
