@@ -1,6 +1,6 @@
 # Living Documentation Collector for Azure DevOps
 
-[![Build and Test](https://github.com/AbsaOSS/living-doc-collector-ad/actions/workflows/static_analysis_and_tests.yml/badge.svg)](https://github.com/AbsaOSS/living-doc-collector-ad/actions/workflows/static_analysis_and_tests.yml)
+[![Build and Test](https://github.com/AbsaOSS/living-doc-collector-ad/actions/workflows/test.yml/badge.svg)](https://github.com/AbsaOSS/living-doc-collector-ad/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 A GitHub Action that extracts living-documentation content from Azure DevOps organizations and projects and emits machine-readable JSON for the downstream `living-doc-*` documentation generators.

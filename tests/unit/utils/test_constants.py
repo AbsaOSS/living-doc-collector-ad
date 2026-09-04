@@ -16,7 +16,7 @@
 
 """Unit tests for utils.constants."""
 
-from utils.constants import Mode, VERBOSE_LOGGING, WORK_ITEMS_ORGANIZATIONS
+from utils.constants import VERBOSE_LOGGING, WORK_ITEMS_ORGANIZATIONS, Mode
 
 
 def test_mode_enum_holds_work_items() -> None:
