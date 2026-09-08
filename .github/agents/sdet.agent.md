@@ -92,16 +92,4 @@ Repo specifics
 - Mocking rules
   - Must mock the Azure DevOps REST API and `INPUT_*` environment variables in unit tests.
   - Must not call the real Azure DevOps API in unit tests.
-- Mock/fixture cheat-table (use these targets, do not invent new ones)
-
-  | Surface to isolate | How | Reference pattern |
-  |---|---|---|
-  | `INPUT_*` action inputs | `monkeypatch.setenv("INPUT_...", ...)` or `mocker.patch("action_inputs.ActionInputs.get_*", return_value=...)` | future `tests/unit/test_action_inputs.py` |
-  | `ActionInputs.validate_user_configuration()` | `mocker.patch("main.ActionInputs.validate_user_configuration", return_value=...)` | `tests/unit/test_main.py::test_run_exits_when_validation_fails` |
-  | Azure DevOps REST API (`requests.get`) | `responses` library — register `https://app.vssps.visualstudio.com/...` and `https://dev.azure.com/<org>/_apis/projects` with a canned status + JSON; add `responses` to `requirements.txt` first | keep one HTTP-mocking convention |
-  | Per-org validation status handling | drive `_call_org_api` return values (200 / 401 / 404 / other) via the `responses` registration and assert the `err_counter` outcome | `action_inputs._validate()` |
-  | `work-items-organizations` parsing | pass raw dict lists straight to `ConfigOrganization.load_from_json` — no mocks needed | `work_items/model/config_organization.py` |
-  | `ADWorkItemsCollector.collect()` | `mocker.patch("main.ADWorkItemsCollector")` and set `.return_value.collect.return_value = True/False` | `main.run()` mode dispatch |
-  | `main.run()` exit code + logs | `mocker.patch("sys.exit")` (or `pytest.raises(SystemExit)`), assert the code is `1`; `mocker.patch("main.logger")` to assert step logs | `tests/unit/test_main.py` |
-  | Logging assertions | `mocker.patch("<module>.logger")` and assert on `.info` / `.warning` / `.error` | `tests/unit/test_main.py` |
-  | Filesystem (`os.path.isabs`, `os.path.abspath`) | `mocker.patch("utils.utils.os.path.isabs", return_value=...)` | `utils/utils.py::make_absolute_path` |
+- Concrete mock/fixture targets for this repo — see `.claude/agents/test-author.md`.

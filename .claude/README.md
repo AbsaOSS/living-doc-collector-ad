@@ -41,3 +41,5 @@ before opening the PR.
 The `.github/agents/` board (`specification-master`, `senior-developer`, `sdet`,
 `reviewer`, `devops-engineer`) stays the source of truth for role behavior. `test-author`
 here is `sdet` plus the concrete repo mock table; `/verify-pr-ready` invokes `reviewer`.
+The mock/fixture cheat-table has one home — `agents/test-author.md`; `sdet.agent.md` only
+points to it.
