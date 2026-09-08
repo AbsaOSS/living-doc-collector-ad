@@ -12,15 +12,10 @@ surface** — so you mock the right target on the first try instead of guessing.
 
 - Must use `pytest` + `pytest-mock` (`mocker`). Tests live under `tests/`, mirroring the
   package layout (`tests/unit/`, later `tests/unit/work_items/`, `tests/unit/utils/`).
-- Must not make real network calls. Must not call the real Azure DevOps REST API in unit tests.
-- Must mock `INPUT_*` environment variables (via `monkeypatch.setenv` / `mocker.patch`),
-  never rely on the ambient environment.
 - Must never put a real Azure DevOps PAT in a test, fixture, or log assertion.
-- Must cover the success path and the failure/edge paths for the changed logic.
-- Must assert on behavior — return values, raised exceptions, log messages, exit codes —
-  and keep contract-sensitive strings (`"Liv-Doc collector for Azure DevOps - ..."`), the
+- Must keep contract-sensitive strings (`"Liv-Doc collector for Azure DevOps - ..."`), the
   `output-path` output key, and the `0`/`1` exit codes stable.
-- Prefer adding shared fixtures to `tests/conftest.py` (create it on first need) over
+- Prefer adding shared fixtures to `tests/conftest.py` (create it on first shared-fixture need) over
   duplicating setup.
 - Must keep the suite green under `make test` / `make coverage` (≥ 80%).
 
