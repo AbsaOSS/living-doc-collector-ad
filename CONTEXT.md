@@ -15,7 +15,7 @@ runner; running `python3 main.py` locally is a development and debugging aid onl
   and the published action image runs 3.14.
 - `requests` for the Azure DevOps REST API (`api-version=7.0`).
 - `living-doc-utilities`, pinned in `requirements.txt`: `get_action_input`, `set_action_output`, `BaseActionInputs`,
-  `setup_logging`, `OUTPUT_PATH`.
+  `setup_logging`. Since 0.8.0 it no longer ships `OUTPUT_PATH`; each collector owns its output default.
 - Quality: Black, ruff, Pylint, mypy, pytest with pytest-cov, pytest-mock and `responses`. Config in `pyproject.toml`
   and `.pylintrc`; the `Makefile` targets wrap them, and CI calls the same targets.
 
@@ -27,7 +27,7 @@ runner; running `python3 main.py` locally is a development and debugging aid onl
 | `main.py` | Entry point `run()`: logging, user-config validation, mode dispatch, `output-path` output, exit code |
 | `action_inputs.py` | `ActionInputs(BaseActionInputs)`: reads every `INPUT_*`, validates the PAT and each organization against the ADO REST API, parses `work-items-organizations` |
 | `work_items/` | `work-items` mode: `collector.py` (`ADWorkItemsCollector`), `model/config_organization.py` (`ConfigOrganization`) |
-| `utils/` | `constants.py` (`Mode` enum, input key names), `exceptions.py` (`FetchOrganizationsException`), `utils.py` (`make_absolute_path`) |
+| `utils/` | `constants.py` (`Mode` enum, input key names, `OUTPUT_PATH` default `./output`), `exceptions.py` (`FetchOrganizationsException`), `utils.py` (`make_absolute_path`) |
 | `tests/` | Unit tests and mock targets: [tests/CONTEXT.md](tests/CONTEXT.md) |
 | `.github/` | CI workflows and pull request checks: [.github/CONTEXT.md](.github/CONTEXT.md) |
 
