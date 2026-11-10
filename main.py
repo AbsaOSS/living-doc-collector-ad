@@ -22,11 +22,11 @@ It sets up logging, loads action inputs, runs the data collection, and sets the 
 import logging
 import sys
 
-from living_doc_utilities.constants import OUTPUT_PATH
 from living_doc_utilities.github.utils import set_action_output
 from living_doc_utilities.logging_config import setup_logging
 
 from action_inputs import ActionInputs
+from utils.constants import OUTPUT_PATH
 from utils.utils import make_absolute_path
 from work_items.collector import ADWorkItemsCollector
 
