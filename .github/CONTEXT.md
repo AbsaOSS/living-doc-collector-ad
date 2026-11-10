@@ -18,7 +18,8 @@ CI workflows, pull request checks, issue and pull request templates, Dependabot 
 
 - `check-pr-requirements.yml`: issue number in the title and the branch name, the `## Overview`, `## Release Notes`
   and `## Related` sections, a closing issue reference, target `master`, `support/*` or `release/*`. The rules for
-  people are in `CONTRIBUTING.md`.
+  people are in `CONTRIBUTING.md`. Skipped on pull requests Dependabot opened (by the pull request's author, not
+  `github.actor`).
 - `check_pr_release_notes.yml`: a `## Release Notes` section; the label `no RN` skips it.
 - `link-check.yml`: lychee over the Markdown files.
 - A pull request opened with `GITHUB_TOKEN` (for example by `agd-update.yml`) starts no workflows: edit it, or close
