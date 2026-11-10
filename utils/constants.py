@@ -30,3 +30,6 @@ class Mode(Enum):
 # Input key names (map to INPUT_<KEY> environment variables)
 WORK_ITEMS_ORGANIZATIONS = "WORK_ITEMS_ORGANIZATIONS"
 VERBOSE_LOGGING = "VERBOSE_LOGGING"
+
+# Output related
+OUTPUT_PATH = "./output"
